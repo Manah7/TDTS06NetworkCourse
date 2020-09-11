@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
 import socket
-import requests
 
 HOST = '127.0.0.1'      # Localhost
-INTERNAL_PORT = 8080    # HTTP proxy internal port
-EXTERNAL_PORT = 8081    # Port for server connection
+INTERNAL_PORT = 8080   # HTTP proxy internal port
+EXTERNAL_PORT = 80    # Port for server connection
 
 print("Init proxy...")
 
@@ -19,7 +18,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         print("Connected by", addr)
         print("Receiving data...")
         data = conn.recv(1024)
-        print(data.decode("utf-8"))
 
         request = data.decode("utf-8").split("\n")
         header = request[0].split(' ')
@@ -33,18 +31,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
             print("Interception of a GET method requesting the URL: ", url)
             print("Destination server: ", server, " (", server_ip, ")")
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-    server_socket.bind((HOST, EXTERNAL_PORT))
-
-    server_socket.connect((server_ip, 80))
-    sent = server_socket.send(bytes(request[0], "utf-8"))
-
-    server_socket.listen()
-    conn, addr = server_socket.accept()
-    with conn:
-        print("Connected by", addr)
-        print("Receiving data...")
-        data = conn.recv(1024)
-        print(data.decode("utf-8"))
-
+    print("Trying to reach the website:")
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.connect((server_ip, EXTERNAL_PORT))
+    print("Connected to server...")
+    print("Sending request...")
+    sent = server_socket.sendall(bytes(request[0], "utf-8"))
+    print("Request sent.")
+    print(server_socket.recv(4096))
     pass
