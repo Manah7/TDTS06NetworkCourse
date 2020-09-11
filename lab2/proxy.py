@@ -11,10 +11,11 @@ proxy_running = True
 
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
+""" We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.bind((HOST, INTERNAL_PORT))
+
 while proxy_running:
-    """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
-    client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    client_socket.bind((HOST, INTERNAL_PORT))
     client_socket.listen()
     print("Proxy ready and waiting...")
 
@@ -54,12 +55,13 @@ while proxy_running:
         print("Response from the server.")
 
         """ Request analysis """
-        status_code = server_response.decode("utf-8").split("\n")[0].split(' ')[1]
+        status_code = server_response[:25].decode("utf-8").split("\n")[0].split(' ')[1]
         if status_code != "200":
             print("The server returned an error, status code: ", status_code)
             print("Exiting...")
             client_socket.close()
             server_socket.close()
+            exit(1)
 
         """ Request alteration """
         print("Server response alteration")
@@ -69,16 +71,23 @@ while proxy_running:
         """ We just resend the altered server response to the client """
         print("Transmitting the altered response to the client")
         client_connection.sendall(server_response)
-        print("")
 
-        ### DEBUG
+        server_socket.close()
+
+        # DEBUG
+        print("")
         print("DEBUG:")
         print(data)
         print(new_request)
         print(server_response)
-        ### END
+        print("")
+        # END DEBUG
 
-    # Ending
-        server_socket.close()
-    client_socket.close()
-    break
+        """ If this is not a GET request """
+    else:
+        print("Receiving an unsupported method: ", method)
+
+    if not proxy_running:
+        break
+
+client_socket.close()
