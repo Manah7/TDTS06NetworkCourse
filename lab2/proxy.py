@@ -9,8 +9,6 @@ EXTERNAL_PORT = 80    # Port for server connection
 print("Init proxy...")
 proxy_running = True
 
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.bind((HOST, INTERNAL_PORT))
