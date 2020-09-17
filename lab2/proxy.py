@@ -110,11 +110,10 @@ while proxy_running:
         print("")
         # END DEBUG
 
+        time.sleep(2)
         """ If this is not a GET request """
     else:
         print("Receiving an unsupported method: ", method)
-
-    time.sleep(2)
 
     if not proxy_running:
         break
