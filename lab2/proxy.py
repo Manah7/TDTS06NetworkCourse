@@ -1,15 +1,40 @@
 #!/usr/bin/env python3
 
 import socket
+import time
 
 HOST = '127.0.0.1'      # Localhost
 INTERNAL_PORT = 8080   # HTTP proxy internal port
 EXTERNAL_PORT = 80    # Port for server connection
 
+""" recv function with no length limit """
+def recv_timeout(socket, timeout=3):
+    socket.setblocking(0)
+    total_data = []
+    data = ''
+
+    begin = time.time()
+    while True:
+        if total_data and time.time() - begin > timeout:
+            break
+
+        elif time.time() - begin > timeout * 2:
+            break
+
+        try:
+            data = socket.recv(8192)
+            if data:
+                total_data.append(data)
+                begin = time.time()
+            else:
+                time.sleep(0.1)
+        except:
+            pass
+    return b''.join(total_data)
+
+
 print("Init proxy...")
 proxy_running = True
-
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -40,6 +65,10 @@ while proxy_running:
         print("Interception of a GET method requesting the URL: ", url)
         print("Destination server: ", server, " (", server_ip, ")")
 
+        print("Checking for alteration...")
+        if "smiley.jpg" in url:
+            url = "http://zebroid.ida.liu.se/fakenews/trolly.jpg"
+
         """ Attempt to resend the request to the server """
         print("Trying to reach the website:")
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -51,17 +80,15 @@ while proxy_running:
 
         """ Waiting fo response """
         print("Request sent.")
-        server_response = server_socket.recv(4096)
+        #server_response = server_socket.recv(4096)
+        server_response = recv_timeout(server_socket)
         print("Response from the server.")
 
         """ Request analysis """
         status_code = server_response[:25].decode("utf-8").split("\n")[0].split(' ')[1]
         if status_code != "200":
             print("The server returned an error, status code: ", status_code)
-            print("Exiting...")
-            client_socket.close()
-            server_socket.close()
-            exit(1)
+            print("Error bypass attempt...")
 
         """ Request alteration """
         print("Server response alteration")
@@ -86,6 +113,8 @@ while proxy_running:
         """ If this is not a GET request """
     else:
         print("Receiving an unsupported method: ", method)
+
+    time.sleep(2)
 
     if not proxy_running:
         break
