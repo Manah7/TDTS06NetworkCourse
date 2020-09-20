@@ -20,9 +20,17 @@ import socket
 import signal
 import time
 
+
+""" Proxy general parameters """
 HOST = '127.0.0.1'      # Localhost
 INTERNAL_PORT = 8080   # HTTP proxy internal port
 EXTERNAL_PORT = 80    # Port for server connection
+
+""" Alteration parameters """
+SEARCH1 = "Smiley"
+REPLACE1 = "Trolly"
+SEARCH2 = "Stockholm"
+REPLACE2 = "Linköping"
 
 
 """ recv function with no length limit """
@@ -75,7 +83,7 @@ def altered(request):
     img_pos = altered_request.find('<img src="', analyse_start, r_end)
     while img_pos > -1:
         # We alter until the start of <img ...>
-        final_request += altered_request[analyse_start:img_pos].replace("Smiley", "Trolly").replace('Stockholm', 'Linkoping')
+        final_request += altered_request[analyse_start:img_pos].replace(SEARCH1, REPLACE1).replace(SEARCH2, REPLACE2)
 
         analyse_start = altered_request.find('">', img_pos, r_end)
         # We do not modify the inside of <img ...>
@@ -84,8 +92,9 @@ def altered(request):
         img_pos = altered_request.find('<img src=', analyse_start, r_end)
 
     # We alter the end of the request
-    final_request += altered_request[analyse_start:img_pos].replace("Smiley", "Trolly").replace('Stockholm', 'Linkoping')
+    final_request += altered_request[analyse_start:img_pos].replace(SEARCH1, REPLACE1).replace(SEARCH2, REPLACE2)
     return bytes(final_request, "utf-8")
+
 
 """ A basic SIGINT handler"""
 def signal_handler(sig, frame):
