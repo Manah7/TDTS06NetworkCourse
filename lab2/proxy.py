@@ -1,11 +1,29 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+"""
+    TDTS06 - Computer networks 2020/21
+    Mayeul G. & Pierre M.
+    Last modification: 2020-09-20
+
+    Websites to try our very basic proxy:
+        http://zebroid.ida.liu.se/fakenews/test2.html
+        http://zebroid.ida.liu.se/fakenews/test4.html
+
+    Note to the corrector:
+    """ """ comments are used to describe the general operation of a passage 
+    while # comments describe the operation of a particular line.
+"""
+
 
 import socket
+import signal
 import time
 
 HOST = '127.0.0.1'      # Localhost
 INTERNAL_PORT = 8080   # HTTP proxy internal port
 EXTERNAL_PORT = 80    # Port for server connection
+
 
 """ recv function with no length limit """
 def recv_timeout(socket, timeout=3):
@@ -33,8 +51,60 @@ def recv_timeout(socket, timeout=3):
     return b''.join(total_data)
 
 
+""" 
+A function which alter a request
+    This function is particularly complex since it is necessary
+    to replace words by others while ensuring that these 
+    replaced words are not image addresses.
+"""
+def altered(request):
+    try:
+        # Decoding the request to analyse it
+        altered_request = request.decode("utf-8")
+    except UnicodeDecodeError:
+        return request
+
+    """ 
+    The purpose of this part is to remplace 'Smiley' by 'Trolly'
+    and 'Stockholm' by 'Linköping' everywhere except in image names.
+    """
+    final_request = ""
+    analyse_start = 0
+    r_end = len(altered_request) - 1
+    # Searching for image
+    img_pos = altered_request.find('<img src="', analyse_start, r_end)
+    while img_pos > -1:
+        # We alter until the start of <img ...>
+        final_request += altered_request[analyse_start:img_pos].replace("Smiley", "Trolly").replace('Stockholm', 'Linkoping')
+
+        analyse_start = altered_request.find('">', img_pos, r_end)
+        # We do not modify the inside of <img ...>
+        final_request += altered_request[img_pos:analyse_start]
+        # We search for another image
+        img_pos = altered_request.find('<img src=', analyse_start, r_end)
+
+    # We alter the end of the request
+    final_request += altered_request[analyse_start:img_pos].replace("Smiley", "Trolly").replace('Stockholm', 'Linkoping')
+    return bytes(final_request, "utf-8")
+
+""" A basic SIGINT handler"""
+def signal_handler(sig, frame):
+    print('Stopping...')
+    try:
+        client_socket.close()
+    except NameError:
+        pass
+    try:
+        server_socket.close()
+    except NameError:
+        pass
+
+    exit(0)
+
+
 print("Init proxy...")
 proxy_running = True
+signal.signal(signal.SIGINT, signal_handler)
 
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -65,6 +135,7 @@ while proxy_running:
         print("Interception of a GET method requesting the URL: ", url)
         print("Destination server: ", server, " (", server_ip, ")")
 
+        """ Image alteration """
         print("Checking for alteration...")
         if "smiley.jpg" in url:
             url = "http://zebroid.ida.liu.se/fakenews/trolly.jpg"
@@ -90,10 +161,9 @@ while proxy_running:
             print("The server returned an error, status code: ", status_code)
             print("Error bypass attempt...")
 
-        """ Request alteration """
+        """ Text alteration """
         print("Server response alteration")
-        server_response = server_response.replace(b'Smiley', b'Trolly')
-        server_response = server_response.replace(b'Stockholm', b'Linkoping')
+        server_response = altered(server_response)
 
         """ We just resend the altered server response to the client """
         print("Transmitting the altered response to the client")
