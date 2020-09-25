@@ -19,12 +19,13 @@
 import socket
 import signal
 import time
+import _thread
 
 
 """ Proxy general parameters """
 HOST = '127.0.0.1'      # Localhost
 INTERNAL_PORT = 8080   # HTTP proxy internal port
-EXTERNAL_PORT = 80    # Port for server connection
+EXTERNAL_PORT = 80   # Port for server connection
 
 """ Alteration parameters """
 SEARCH1 = "Smiley"
@@ -121,15 +122,61 @@ def signal_handler(sig, frame):
     exit(0)
 
 
+def send_server(t_url, t_protocol, t_server):
+    """ Attempt to resend the request to the server """
+    print("Trying to reach the website:")
+    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    t_server_ip = socket.gethostbyname(t_server)
+    server_socket.connect((t_server_ip, EXTERNAL_PORT))
+    print("Connected to server...")
+    print("Sending request...")
+    new_request = bytes("GET " + t_url + " " + t_protocol + "\nHost: " + t_server + "\r\n\r\n", "utf-8")
+    server_socket.sendall(new_request)
+
+    """ Waiting fo response """
+    print("Request sent.")
+    server_response = recv_timeout(server_socket)
+    print("Response from the server.")
+
+    """ Request analysis """
+    status_code = server_response[:25].decode("utf-8").split("\n")[0].split(' ')[1]
+    if status_code != "200":
+        print("The server returned an error, status code: ", status_code)
+        print("Error bypass attempt...")
+
+    """ Text alteration """
+    print("Server response alteration")
+    server_response = altered(server_response)
+
+    """ We just resend the altered server response to the client """
+    print("Transmitting the altered response to the client")
+    client_connection.sendall(server_response)
+    server_socket.close()
+
+    # DEBUG
+    if DEBUG:
+        print("")
+        print("DEBUG:")
+        print(data)
+        print(new_request)
+        print(server_response)
+        print("")
+    # END DEBUG
+
+
+
 print("Init proxy...")
 proxy_running = True
 # Launching signal handler
 signal.signal(signal.SIGINT, signal_handler)
+request_count = 0
+
 
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.bind((HOST, INTERNAL_PORT))
 client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+client_socket.bind((HOST, INTERNAL_PORT))
 
 while proxy_running:
     client_socket.listen()
@@ -146,9 +193,10 @@ while proxy_running:
     header = request[0].split(' ')
     method = header[0]
 
-    """ If it is a GET request """
-    if method == "GET":
-        """ We extract any useful information """
+    if "detectportal.firefox.com/success.txt" in request:
+        pass
+    elif method == "GET":
+        """ If it is a GET request, we extract any useful information """
         url = header[1]
         server = url.split('/')[2]
         server_ip = socket.gethostbyname(server)
@@ -161,48 +209,11 @@ while proxy_running:
         if "smiley.jpg" in url:
             url = "http://zebroid.ida.liu.se/fakenews/trolly.jpg"
 
-        """ Attempt to resend the request to the server """
-        print("Trying to reach the website:")
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.connect((server_ip, EXTERNAL_PORT))
-        print("Connected to server...")
-        print("Sending request...")
-        new_request = bytes("GET " + url + " " + protocol + "\nHost: " + server + "\r\n\r\n", "utf-8")
-        server_socket.sendall(new_request)
 
-        """ Waiting fo response """
-        print("Request sent.")
-        #server_response = server_socket.recv(4096)
-        server_response = recv_timeout(server_socket)
-        print("Response from the server.")
-
-        """ Request analysis """
-        status_code = server_response[:25].decode("utf-8").split("\n")[0].split(' ')[1]
-        if status_code != "200":
-            print("The server returned an error, status code: ", status_code)
-            print("Error bypass attempt...")
-
-        """ Text alteration """
-        print("Server response alteration")
-        server_response = altered(server_response)
-
-        """ We just resend the altered server response to the client """
-        print("Transmitting the altered response to the client")
-        client_connection.sendall(server_response)
-
-        server_socket.close()
-
-        # DEBUG
-        if DEBUG:
-            print("")
-            print("DEBUG:")
-            print(data)
-            print(new_request)
-            print(server_response)
-            print("")
-        # END DEBUG
-
+        _thread.start_new_thread(send_server, (url, protocol, server))
+        request_count += 1
         time.sleep(2)
+
         """ If this is not a GET request """
     else:
         print("Receiving an unsupported method: ", method)
