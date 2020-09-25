@@ -122,7 +122,7 @@ def signal_handler(sig, frame):
     exit(0)
 
 
-def send_server(t_url, t_protocol, t_server):
+def send_server(t_url, t_protocol, t_server, t_client_connection):
     """ Attempt to resend the request to the server """
     print("Trying to reach the website:")
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -151,7 +151,7 @@ def send_server(t_url, t_protocol, t_server):
 
     """ We just resend the altered server response to the client """
     print("Transmitting the altered response to the client")
-    client_connection.sendall(server_response)
+    t_client_connection.sendall(server_response)
     server_socket.close()
 
     # DEBUG
@@ -209,10 +209,8 @@ while proxy_running:
         if "smiley.jpg" in url:
             url = "http://zebroid.ida.liu.se/fakenews/trolly.jpg"
 
-
-        _thread.start_new_thread(send_server, (url, protocol, server))
+        _thread.start_new_thread(send_server, (url, protocol, server, client_connection))
         request_count += 1
-        time.sleep(2)
 
         """ If this is not a GET request """
     else:
