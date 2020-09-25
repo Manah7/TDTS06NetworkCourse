@@ -17,15 +17,16 @@
 
 
 import argparse
+import re
 import signal
 import socket
 import time
 import _thread
 
 
-""" Proxy general parameters """
+""" Proxy general parameters (default values) """
 HOST = '127.0.0.1'      # Localhost
-INTERNAL_PORT = 8080   # HTTP proxy internal port
+INTERNAL_PORT = 8080   # HTTP proxy internal port (can be change by user using --port PORT)
 EXTERNAL_PORT = 80   # Port for server connection
 
 """ Alteration parameters """
@@ -33,6 +34,9 @@ SEARCH1 = "Smiley"
 REPLACE1 = "Trolly"
 SEARCH2 = "Stockholm"
 REPLACE2 = "Linköping"
+
+PATTERN1 = re.compile("Smiley", re.IGNORECASE)
+PATTERN2 = re.compile("Stockholm", re.IGNORECASE)
 
 """ Dev. parameters """
 DEBUG = False
@@ -88,13 +92,15 @@ def altered(request):
     and 'Stockholm' by 'Linköping' everywhere except in image names.
     """
     final_request = ""
+    tmp = ""
     analyse_start = 0
     r_end = len(altered_request) - 1
     # Searching for image
     img_pos = altered_request.find('<img src="', analyse_start, r_end)
     while img_pos > -1:
         # We alter until the start of <img ...>
-        final_request += altered_request[analyse_start:img_pos].replace(SEARCH1, REPLACE1).replace(SEARCH2, REPLACE2)
+        #final_request += altered_request[analyse_start:img_pos].replace(SEARCH1, REPLACE1).replace(SEARCH2, REPLACE2)
+        final_request += PATTERN2.sub(REPLACE2, PATTERN1.sub(REPLACE1, altered_request[analyse_start:img_pos]))
 
         analyse_start = altered_request.find('">', img_pos, r_end)
         # We do not modify the inside of <img ...>
@@ -103,7 +109,8 @@ def altered(request):
         img_pos = altered_request.find('<img src=', analyse_start, r_end)
 
     # We alter the end of the request
-    final_request += altered_request[analyse_start:img_pos].replace(SEARCH1, REPLACE1).replace(SEARCH2, REPLACE2)
+    #final_request += altered_request[analyse_start:img_pos].replace(SEARCH1, REPLACE1).replace(SEARCH2, REPLACE2)
+    final_request += PATTERN2.sub(REPLACE2, PATTERN1.sub(REPLACE1, altered_request[analyse_start:img_pos]))
     return bytes(final_request, "utf-8")
 
 
