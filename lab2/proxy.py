@@ -16,8 +16,9 @@
 """
 
 
-import socket
+import argparse
 import signal
+import socket
 import time
 import _thread
 
@@ -34,13 +35,14 @@ SEARCH2 = "Stockholm"
 REPLACE2 = "Linköping"
 
 """ Dev. parameters """
-DEBUG = True
+DEBUG = False
 
 
 """ recv function with no length limit """
-def recv_timeout(socket, timeout=3):
+def recv_timeout(socket, timeout=0.5):
     # Reset timeout
     socket.setblocking(0)
+    auto_timeout = False
     # Variables containing our data
     total_data = []
     data = ''
@@ -165,18 +167,29 @@ def send_server(t_url, t_protocol, t_server, t_client_connection):
     # END DEBUG
 
 
-
+""" Starting proxy initialisation """
 print("Init proxy...")
 proxy_running = True
 # Launching signal handler
 signal.signal(signal.SIGINT, signal_handler)
-request_count = 0
+
+
+""" We check for arguments """
+parser = argparse.ArgumentParser(description='A very basic HTTP proxy.')
+parser.add_argument('--debug', help='Print debug information', action='store_true')
+parser.add_argument('--port', help='set the port to use for the client side connection')
+args = parser.parse_args()
+if args.debug:
+    DEBUG = True
+if args.port:
+    INTERNAL_PORT = int(args.port)
 
 
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 client_socket.bind((HOST, INTERNAL_PORT))
+request_count = 0
 
 while proxy_running:
     client_socket.listen()
