@@ -30,39 +30,60 @@ INTERNAL_PORT = 8080   # HTTP proxy internal port (can be change by user using -
 EXTERNAL_PORT = 80   # Port for server connection
 
 """ Alteration parameters """
-SEARCH1 = "Smiley"
 REPLACE1 = "Trolly"
-SEARCH2 = "Stockholm"
 REPLACE2 = "Linköping"
-
 PATTERN1 = re.compile("Smiley", re.IGNORECASE)
 PATTERN2 = re.compile("Stockholm", re.IGNORECASE)
 
 """ Dev. parameters """
-DEBUG = False
+DEBUG = False               # Can be change by passing --debug arg
+SUPPOSE_INTERNET = True     # Can be change by passing --settimeoutglobal arg
 
 
 """ recv function with no length limit """
-def recv_timeout(socket, timeout=0.5):
+def recv_timeout(socket, packet_timeout=0.5, global_timeout=3):
     # Reset timeout
+    timeout = packet_timeout
     socket.setblocking(0)
-    auto_timeout = False
+    first_pkt = True
     # Variables containing our data
     total_data = []
-    data = ''
 
     begin = time.time()
+    global_begin = time.time()
     while True:
-        # Check for timeout
+        # Check for packet timeout
         if total_data and time.time() - begin > timeout:
             break
 
-        elif time.time() - begin > timeout * 2:
+        # Check for global timeout
+        if total_data and time.time() - global_begin > global_timeout:
+            break
+
+        elif time.time() - begin > timeout * 2 or time.time() - global_begin > global_timeout:
             break
 
         # Try to receive data
         try:
             data = socket.recv(8192)
+
+            # Trying to find the Content_Length field
+            if first_pkt and SUPPOSE_INTERNET:
+                first_pkt = False
+                try:
+                    pos = data.find(b'Content-Length:')
+                    pos_end = data.find(b'\r', pos, len(data) - 1)
+                    if DEBUG:
+                        print("DEBUG: Find 'Content_length' field:")
+                        print(data[pos+16:pos_end])
+                    content_length = data[pos+16:pos_end]
+
+                    """ Here, we try to estimate a correct timeout by assuming the client's internet speed. 
+                    We cannot estimate this flow ourselves because it is much too long as a procedure."""
+                    global_timeout = content_length * 0.0001
+                except:
+                    pass
+
             if data:
                 total_data.append(data)
                 begin = time.time()
@@ -99,7 +120,6 @@ def altered(request):
     img_pos = altered_request.find('<img src="', analyse_start, r_end)
     while img_pos > -1:
         # We alter until the start of <img ...>
-        #final_request += altered_request[analyse_start:img_pos].replace(SEARCH1, REPLACE1).replace(SEARCH2, REPLACE2)
         final_request += PATTERN2.sub(REPLACE2, PATTERN1.sub(REPLACE1, altered_request[analyse_start:img_pos]))
 
         analyse_start = altered_request.find('">', img_pos, r_end)
@@ -109,7 +129,6 @@ def altered(request):
         img_pos = altered_request.find('<img src=', analyse_start, r_end)
 
     # We alter the end of the request
-    #final_request += altered_request[analyse_start:img_pos].replace(SEARCH1, REPLACE1).replace(SEARCH2, REPLACE2)
     final_request += PATTERN2.sub(REPLACE2, PATTERN1.sub(REPLACE1, altered_request[analyse_start:img_pos]))
     return bytes(final_request, "utf-8")
 
@@ -184,12 +203,16 @@ signal.signal(signal.SIGINT, signal_handler)
 """ We check for arguments """
 parser = argparse.ArgumentParser(description='A very basic HTTP proxy.')
 parser.add_argument('--debug', help='Print debug information', action='store_true')
+parser.add_argument('--settimeoutglobal', help='Do not suppose the client\'s internet speed. For slow connection.', action='store_true')
 parser.add_argument('--port', help='set the port to use for the client side connection')
 args = parser.parse_args()
 if args.debug:
     DEBUG = True
 if args.port:
     INTERNAL_PORT = int(args.port)
+if args.settimeoutglobal:
+    SUPPOSE_INTERNET = False
+
 
 
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
