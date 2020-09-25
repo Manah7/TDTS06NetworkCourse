@@ -35,18 +35,22 @@ REPLACE2 = "Linköping"
 
 """ recv function with no length limit """
 def recv_timeout(socket, timeout=3):
+    # Reset timeout
     socket.setblocking(0)
+    # Variables containing our data
     total_data = []
     data = ''
 
     begin = time.time()
     while True:
+        # Check for timeout
         if total_data and time.time() - begin > timeout:
             break
 
         elif time.time() - begin > timeout * 2:
             break
 
+        # Try to receive data
         try:
             data = socket.recv(8192)
             if data:
@@ -54,6 +58,7 @@ def recv_timeout(socket, timeout=3):
                 begin = time.time()
             else:
                 time.sleep(0.1)
+        # Except no data
         except:
             pass
     return b''.join(total_data)
@@ -100,10 +105,12 @@ def altered(request):
 def signal_handler(sig, frame):
     print('Stopping...')
     try:
+        # Try closing client socket
         client_socket.close()
     except NameError:
         pass
     try:
+        # Try closing server socket
         server_socket.close()
     except NameError:
         pass
@@ -113,6 +120,7 @@ def signal_handler(sig, frame):
 
 print("Init proxy...")
 proxy_running = True
+# Launching signal handler
 signal.signal(signal.SIGINT, signal_handler)
 
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
