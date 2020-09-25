@@ -13,6 +13,15 @@
     Note to the corrector:
     """ """ comments are used to describe the general operation of a passage 
     while # comments describe the operation of a particular line.
+    
+    Usage: proxy.py [-h] [--debug] [--settimeoutglobal] [--port PORT]
+
+    Optional arguments:
+            -h, --help              show the help message and exit
+            --debug                 print debug information
+            --settimeoutglobal      do not suppose the client's internet speed. For slow connection.
+            --port PORT             set the port to use for the client side connection
+
 """
 
 
@@ -80,7 +89,8 @@ def recv_timeout(socket, packet_timeout=0.5, global_timeout=3):
 
                     """ Here, we try to estimate a correct timeout by assuming the client's internet speed. 
                     We cannot estimate this flow ourselves because it is much too long as a procedure."""
-                    global_timeout = content_length * 0.0001
+                    # Supposing a minimum 100 KBytes/sec
+                    global_timeout = content_length * 0.00001
                 except:
                     pass
 
@@ -193,17 +203,11 @@ def send_server(t_url, t_protocol, t_server, t_client_connection):
     # END DEBUG
 
 
-""" Starting proxy initialisation """
-print("Init proxy...")
-proxy_running = True
-# Launching signal handler
-signal.signal(signal.SIGINT, signal_handler)
-
-
+""" Code entry """
 """ We check for arguments """
 parser = argparse.ArgumentParser(description='A very basic HTTP proxy.')
-parser.add_argument('--debug', help='Print debug information', action='store_true')
-parser.add_argument('--settimeoutglobal', help='Do not suppose the client\'s internet speed. For slow connection.', action='store_true')
+parser.add_argument('--debug', help='print debug information', action='store_true')
+parser.add_argument('--settimeoutglobal', help='po not suppose the client\'s internet speed. For slow connection.', action='store_true')
 parser.add_argument('--port', help='set the port to use for the client side connection')
 args = parser.parse_args()
 if args.debug:
@@ -214,6 +218,11 @@ if args.settimeoutglobal:
     SUPPOSE_INTERNET = False
 
 
+""" Starting proxy initialisation """
+print("Init proxy...")
+# Launching signal handler
+signal.signal(signal.SIGINT, signal_handler)
+
 
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -221,7 +230,8 @@ client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 client_socket.bind((HOST, INTERNAL_PORT))
 request_count = 0
 
-while proxy_running:
+
+while True:
     client_socket.listen()
     print("Proxy ready and waiting...")
 
@@ -263,8 +273,3 @@ while proxy_running:
             print("DEBUG:")
             print(data)
             print("")
-
-    if not proxy_running:
-        break
-
-client_socket.close()
