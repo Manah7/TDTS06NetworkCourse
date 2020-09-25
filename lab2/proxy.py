@@ -32,6 +32,9 @@ REPLACE1 = "Trolly"
 SEARCH2 = "Stockholm"
 REPLACE2 = "Linköping"
 
+""" Dev. parameters """
+DEBUG = True
+
 
 """ recv function with no length limit """
 def recv_timeout(socket, timeout=3):
@@ -126,6 +129,7 @@ signal.signal(signal.SIGINT, signal_handler)
 """ We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
 client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 client_socket.bind((HOST, INTERNAL_PORT))
+client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 while proxy_running:
     client_socket.listen()
@@ -189,18 +193,24 @@ while proxy_running:
         server_socket.close()
 
         # DEBUG
-        print("")
-        print("DEBUG:")
-        print(data)
-        print(new_request)
-        print(server_response)
-        print("")
+        if DEBUG:
+            print("")
+            print("DEBUG:")
+            print(data)
+            print(new_request)
+            print(server_response)
+            print("")
         # END DEBUG
 
         time.sleep(2)
         """ If this is not a GET request """
     else:
         print("Receiving an unsupported method: ", method)
+        if DEBUG:
+            print("")
+            print("DEBUG:")
+            print(data)
+            print("")
 
     if not proxy_running:
         break
