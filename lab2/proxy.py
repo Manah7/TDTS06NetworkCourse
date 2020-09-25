@@ -4,7 +4,8 @@
 """
     TDTS06 - Computer networks 2020/21
     Mayeul G. & Pierre M.
-    Last modification: 2020-09-20
+    Last modification: 2020-09-25
+    First release: 2020-09-25 (rev 1)
 
     Websites to try our very basic proxy:
         http://zebroid.ida.liu.se/fakenews/test2.html
@@ -19,18 +20,18 @@
     Optional arguments:
             -h, --help              show the help message and exit
             --debug                 print debug information
-            --settimeoutglobal      do not suppose the client's internet speed. For slow connection.
+            --settimeoutglobal      do not suppose the client's internet speed. For slow connections.
             --port PORT             set the port to use for the client side connection
 
 """
 
 
-import argparse
-import re
-import signal
-import socket
-import time
-import _thread
+import argparse     # For program's argument management
+import re           # To find patterns
+import signal       # To implement a signal handler
+import socket       # A low level socket programming library
+import time         # To manage timeout
+import _thread      # Library for multi-threading
 
 
 """ Proxy general parameters (default values) """
