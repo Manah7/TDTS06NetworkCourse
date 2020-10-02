@@ -4,7 +4,7 @@
 """
     TDTS06 - Computer networks 2020/21
     Mayeul G. & Pierre M.
-    Last modification: 2020-09-25
+    Last modification: 2020-10-02 (rev 3)
     First release: 2020-09-25 (rev 1)
 
     Websites to try our very basic proxy:
@@ -15,12 +15,11 @@
     """ """ comments are used to describe the general operation of a passage 
     while # comments describe the operation of a particular line.
     
-    Usage: proxy.py [-h] [--debug] [--settimeoutglobal] [--port PORT]
+    Usage: proxy.py [-h] [--debug] [--port PORT]
 
     Optional arguments:
             -h, --help              show the help message and exit
             --debug                 print debug information
-            --settimeoutglobal      do not suppose the client's internet speed. For slow connections.
             --port PORT             set the port to use for the client side connection
 
 """
@@ -47,59 +46,35 @@ PATTERN2 = re.compile("Stockholm", re.IGNORECASE)
 
 """ Dev. parameters """
 DEBUG = False               # Can be change by passing --debug arg
-SUPPOSE_INTERNET = True     # Can be change by passing --settimeoutglobal arg
 
 
-""" recv function with no length limit """
-def recv_timeout(socket, packet_timeout=0.5, global_timeout=3):
-    # Reset timeout
-    timeout = packet_timeout
-    socket.setblocking(0)
-    first_pkt = True
-    # Variables containing our data
+""" A non-blocking recv function """
+def recv_non_blocking(socket):
     total_data = []
+    first_pkt = True
+    content_length = 0
 
-    begin = time.time()
-    global_begin = time.time()
     while True:
-        # Check for packet timeout
-        if total_data and time.time() - begin > timeout:
-            break
-
-        # Check for global timeout
-        if total_data and time.time() - global_begin > global_timeout:
-            break
-
-        elif time.time() - begin > timeout * 2 or time.time() - global_begin > global_timeout:
-            break
-
         # Try to receive data
         try:
+            print("Receiving data segment...")
             data = socket.recv(8192)
 
             # Trying to find the Content_Length field
-            if first_pkt and SUPPOSE_INTERNET:
+            if first_pkt:
                 first_pkt = False
-                try:
-                    pos = data.find(b'Content-Length:')
-                    pos_end = data.find(b'\r', pos, len(data) - 1)
-                    if DEBUG:
-                        print("DEBUG: Find 'Content_length' field:")
-                        print(data[pos+16:pos_end])
-                    content_length = data[pos+16:pos_end]
+                pos = data.find(b'Content-Length:')
+                pos_end = data.find(b'\r', pos, len(data) - 1)
+                content_length = int(data[pos+16:pos_end].decode("utf-8"))
 
-                    """ Here, we try to estimate a correct timeout by assuming the client's internet speed. 
-                    We cannot estimate this flow ourselves because it is much too long as a procedure."""
-                    # Supposing a minimum 100 KBytes/sec
-                    global_timeout = content_length * 0.00001
-                except:
-                    pass
-
+            # If we have new data, we add it to the total
             if data:
                 total_data.append(data)
-                begin = time.time()
+                # If the total exceed the Content_Length field, we are done.
+                if len(b''.join(total_data)) >= content_length and content_length:
+                    break
             else:
-                time.sleep(0.1)
+                time.sleep(0.05)
         # Except no data
         except:
             pass
@@ -128,16 +103,16 @@ def altered(request):
     analyse_start = 0
     r_end = len(altered_request) - 1
     # Searching for image
-    img_pos = altered_request.find('<img src="', analyse_start, r_end)
+    img_pos = altered_request.find('<', analyse_start, r_end)
     while img_pos > -1:
         # We alter until the start of <img ...>
         final_request += PATTERN2.sub(REPLACE2, PATTERN1.sub(REPLACE1, altered_request[analyse_start:img_pos]))
 
-        analyse_start = altered_request.find('">', img_pos, r_end)
+        analyse_start = altered_request.find('>', img_pos, r_end)
         # We do not modify the inside of <img ...>
         final_request += altered_request[img_pos:analyse_start]
         # We search for another image
-        img_pos = altered_request.find('<img src=', analyse_start, r_end)
+        img_pos = altered_request.find('<', analyse_start, r_end)
 
     # We alter the end of the request
     final_request += PATTERN2.sub(REPLACE2, PATTERN1.sub(REPLACE1, altered_request[analyse_start:img_pos]))
@@ -175,7 +150,8 @@ def send_server(t_url, t_protocol, t_server, t_client_connection):
 
     """ Waiting fo response """
     print("Request sent.")
-    server_response = recv_timeout(server_socket)
+    server_response = recv_non_blocking(server_socket)
+    #server_response = recv_timeout(server_socket)
     print("Response from the server.")
 
     """ Request analysis """
@@ -204,44 +180,7 @@ def send_server(t_url, t_protocol, t_server, t_client_connection):
     # END DEBUG
 
 
-""" Code entry """
-""" We check for arguments """
-parser = argparse.ArgumentParser(description='A very basic HTTP proxy.')
-parser.add_argument('--debug', help='print debug information', action='store_true')
-parser.add_argument('--settimeoutglobal', help='po not suppose the client\'s internet speed. For slow connection.', action='store_true')
-parser.add_argument('--port', help='set the port to use for the client side connection')
-args = parser.parse_args()
-if args.debug:
-    DEBUG = True
-if args.port:
-    INTERNAL_PORT = int(args.port)
-if args.settimeoutglobal:
-    SUPPOSE_INTERNET = False
-
-
-""" Starting proxy initialisation """
-print("Init proxy...")
-# Launching signal handler
-signal.signal(signal.SIGINT, signal_handler)
-
-
-""" We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-client_socket.bind((HOST, INTERNAL_PORT))
-request_count = 0
-
-
-while True:
-    client_socket.listen()
-    print("Proxy ready and waiting...")
-
-    """ We accept any connection on the port and we keep the data sent """
-    client_connection, addr = client_socket.accept()
-    print("Connected by", addr)
-    print("Receiving data...")
-    data = client_connection.recv(1024)
-
+def manage_request(data, client_connection):
     """ Analysis of the request and identification """
     request = data.decode("utf-8").split("\n")
     header = request[0].split(' ')
@@ -264,7 +203,6 @@ while True:
             url = "http://zebroid.ida.liu.se/fakenews/trolly.jpg"
 
         _thread.start_new_thread(send_server, (url, protocol, server, client_connection))
-        request_count += 1
 
         """ If this is not a GET request """
     else:
@@ -274,3 +212,43 @@ while True:
             print("DEBUG:")
             print(data)
             print("")
+
+
+""" Code entry """
+""" We check for arguments """
+parser = argparse.ArgumentParser(description='A very basic HTTP proxy.')
+parser.add_argument('--debug', help='print debug information', action='store_true')
+parser.add_argument('--port', help='set the port to use for the client side connection')
+args = parser.parse_args()
+if args.debug:
+    DEBUG = True
+if args.port:
+    INTERNAL_PORT = int(args.port)
+
+
+""" Starting proxy initialisation """
+print("Init proxy...")
+# Launching signal handler
+signal.signal(signal.SIGINT, signal_handler)
+if DEBUG:
+    print("DEBUG: Debug mode enabled.")
+
+
+""" We create a local proxy on the port INTERNAL_PORT and we listen, waiting for a request """
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+client_socket.bind((HOST, INTERNAL_PORT))
+
+
+while True:
+    client_socket.listen()
+    print("Proxy ready and waiting...")
+
+    """ We accept any connection on the port and we keep the data sent """
+    client_connection, addr = client_socket.accept()
+    print("Connected by", addr)
+    print("Receiving data...")
+    data = client_connection.recv(2048)
+
+    _thread.start_new_thread(manage_request, (data, client_connection))
+
