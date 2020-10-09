@@ -11,15 +11,13 @@ public class RouterNode {
   
   // Program parameters
   private int CONST_TAB_SIZE = 12; // Constant used to set column width
-  private boolean POISONED_REVERSE = false;
+  private boolean POISONED_REVERSE = true;
   
   /*	TDTS06 - Mayeul G. & Pierre M. - Lab 4
    * 	
    * 	TODO:
-   * 		- Implement a Update function for when we receive  
-   * 		  a packet or when a link cost change
-   * 		- Implement poisoned reverse in the sendUpdate() 
-   * 		  function
+   * 		- Debug and make this program work
+   * 		- Panic. 
    *  
    */
   
@@ -44,6 +42,7 @@ public class RouterNode {
     for (int[] row: distanceTable) {Arrays.fill(row, sim.INFINITY);}
     distanceTable[myID] = Arrays.copyOf(costs, costs.length);
     
+    sendUpdate();
     printDistanceTable();
   }
 
