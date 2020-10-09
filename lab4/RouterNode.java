@@ -7,7 +7,6 @@ public class RouterNode {
   private RouterSimulator sim;
   private int[] costs = new int[RouterSimulator.NUM_NODES];
   private int[][] distanceTable = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
-  private int[] gotoCosts = new int[RouterSimulator.NUM_NODES];
   private int[] routesList = new int[RouterSimulator.NUM_NODES];
   
   // Program parameters
@@ -26,13 +25,13 @@ public class RouterNode {
   
 
   //--------------------------------------------------
+  // Virtual router constructor, init. base values, distance table, routes table & costs table
   public RouterNode(int ID, RouterSimulator sim, int[] costs) {
     myID = ID;
     this.sim = sim;
     myGUI = new GuiTextArea("  Output window for Router #"+ ID + "  ");
 
     System.arraycopy(costs, 0, this.costs, 0, RouterSimulator.NUM_NODES);
-    System.arraycopy(costs, 0, this.gotoCosts, 0, RouterSimulator.NUM_NODES);
     
     
     // Route list initialisation
@@ -50,29 +49,67 @@ public class RouterNode {
 
   
   //--------------------------------------------------
-  private void Update() {
-	  //TODO
+  // Update the route list from the distanceTable
+  private boolean Update() {
+	  boolean updt = false;
+	  for (int i = 0; i < sim.NUM_NODES; i++) {
+		  // We ignore ourself
+		  if (i == myID) {continue;}
+
+		  int newRouteCost = sim.INFINITY;
+		  
+		  // We keep the old values in memory
+		  int oldRoute = routesList[i];
+		  int oldRouteCost = distanceTable[myID][i];
+
+		  for (int j = 0; j < sim.NUM_NODES; j++){
+			  // We keep ignoring ourself
+			  if (j == myID) {continue;}
+			  
+			  // If this is a neighbour AND if the new searched route is greater than the actual distance AND if it is not us
+			  if(costs[j] != RouterSimulator.INFINITY && newRouteCost > distanceTable[j][i] + costs[j] && j != myID){
+				  distanceTable[myID][i] = distanceTable[j][i] + costs[j];
+                  newRouteCost = distanceTable[myID][i];
+				  routesList[i] = j;
+			  }
+		  }
+		  if(oldRoute != routesList[i] || oldRouteCost != distanceTable[myID][i]){
+			  updt = true;
+		  }
+	  }
+	  return updt;
   }
   
   
   //--------------------------------------------------
   public void recvUpdate(RouterPacket pkt) {
+	  DEBUG("Rcv packet !");
+	  // Updating the distance table
 	  distanceTable[pkt.sourceid] = pkt.mincost;
-	  Update();
-	  sendUpdate();
+	  // Updating the routes list from the distance table
+	  // and send this update to all neighbour if there
+	  // are changes
+	  if (Update()) {sendUpdate();}
   }
   
 
   //--------------------------------------------------
   private void sendUpdate() {
 	  for (int i = 0; i < sim.NUM_NODES; i++) {
+		  int[] sendedCosts = Arrays.copyOf(distanceTable[myID],sim.NUM_NODES);
+		  
 		  // We ignore non-neighbor nodes
 	      if(i == myID || costs[i] == sim.INFINITY) {continue;}
 	      
 	      if(POISONED_REVERSE) {
-	    	  //TODO
+	    	  for (int j = 0; j < RouterSimulator.NUM_NODES; j++) {
+	    		  if (routesList[j] == i && j != i) {
+	    			  sendedCosts[j] = RouterSimulator.INFINITY;
+	    		  }
+	    	  }
 	      }
-	      RouterPacket pkt = new RouterPacket(myID,i,Arrays.copyOf(distanceTable[myID],sim.NUM_NODES));
+	      RouterPacket pkt = new RouterPacket(myID,i,sendedCosts);
+	      DEBUG("Sending updt !");
 	      sim.toLayer2(pkt);
 	  }
  }
@@ -118,7 +155,7 @@ public class RouterNode {
 	  // Printing costs
 	  myGUI.print(F.format("cost",CONST_TAB_SIZE) + "|");
 	  for (int i = 0; i < sim.NUM_NODES; i++) {
-	      myGUI.print(F.format(gotoCosts[i],CONST_TAB_SIZE));
+	      myGUI.print(F.format(costs[i],CONST_TAB_SIZE));
 	  }
 	  myGUI.println("");
 	  // Printing routes
@@ -126,10 +163,20 @@ public class RouterNode {
 	  for (int i = 0; i < sim.NUM_NODES; i++) {
 	      myGUI.print(F.format(routesList[i],CONST_TAB_SIZE));
 	  }
+	  myGUI.println("");
   }
 
   //--------------------------------------------------
   public void updateLinkCost(int dest, int newcost) {
+	  costs[dest] = newcost;
+	  if (Update()) {sendUpdate();}
   }
-
+  
+  // DEBUG FUNCTION - TO REMOVE
+  private void DEBUG(String str) {
+	  myGUI.print(" DEBUG from " + myID + "  at time " + sim.getClocktime() + ": ");
+	  myGUI.println(str);
+  }
 }
+
+
