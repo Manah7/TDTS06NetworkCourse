@@ -6,19 +6,18 @@ public class RouterNode {
   private GuiTextArea myGUI;
   private RouterSimulator sim;
   private int[] costs = new int[RouterSimulator.NUM_NODES];
-  private int[][] distanceTable = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
   private int[] routesList = new int[RouterSimulator.NUM_NODES];
+  private int[][] distanceTable = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
   
   // Program parameters
-  private int CONST_TAB_SIZE = 12; // Constant used to set column width
-  private boolean POISONED_REVERSE = true;
+  private int CONST_TAB_SIZE = 12; 			// Constant used to set column width
+  private boolean POISONED_REVERSE = true; 	// To set poisoned reverse or not
   
   /*	TDTS06 - Mayeul G. & Pierre M. - Lab 4
-   * 	
    * 	TODO:
-   * 		- Debug and make this program work
-   * 		- Panic. 
-   *  
+   * 		- Debug and make this program work --> done.
+   * 		- Panic --> done.
+   * 		- Demonstrate ?
    */
   
 
@@ -34,15 +33,21 @@ public class RouterNode {
     
     // Route list initialisation
     for (int i = 0; i < sim.NUM_NODES; i++) {
+    	// If the cost is not infinity, we have a route
         if (costs[i] != sim.INFINITY){routesList[i] = i;} 
         else{routesList[i] = -1;}
     }
     
-    // Distance table initialisation
+    // Distance table initialisation:
+    // Infinity everywhere...
     for (int[] row: distanceTable) {Arrays.fill(row, sim.INFINITY);}
+    // ...except for itself
     distanceTable[myID] = Arrays.copyOf(costs, costs.length);
     
+    // Sending first update to neighbour
     sendUpdate();
+    
+    // Printing first distance table
     printDistanceTable();
   }
 
@@ -50,6 +55,7 @@ public class RouterNode {
   //--------------------------------------------------
   // Update the route list from the distanceTable
   private boolean Update() {
+	  // We are going to check for update to avoid sending useless info.
 	  boolean updt = false;
 	  for (int i = 0; i < sim.NUM_NODES; i++) {
 		  // We ignore ourself
@@ -72,6 +78,7 @@ public class RouterNode {
 				  routesList[i] = j;
 			  }
 		  }
+		  // If we have changed smth then we have a update
 		  if(oldRoute != routesList[i] || oldRouteCost != distanceTable[myID][i]){
 			  updt = true;
 		  }
@@ -100,7 +107,12 @@ public class RouterNode {
 		  // We ignore non-neighbor nodes
 	      if(i == myID || costs[i] == sim.INFINITY) {continue;}
 	      
+	      // Implementing poisoned reverse
 	      if(POISONED_REVERSE) {
+	    	  // For all destination nodes, if our route for a other node go thought
+	    	  // this destination node, we set the distance to infinity to avoid that
+	    	  // this destination node try to go back thought us and create a loop.
+	    	  // See page 418 in the course book (4th edition).
 	    	  for (int j = 0; j < RouterSimulator.NUM_NODES; j++) {
 	    		  if (routesList[j] == i && j != i) {
 	    			  sendedCosts[j] = RouterSimulator.INFINITY;
@@ -111,8 +123,10 @@ public class RouterNode {
 	      DEBUG("Sending updt !");
 	      sim.toLayer2(pkt);
 	  }
- }
+  }
   
+  //--------------------------------------------------
+  // Function that print a table header
   private void printTabHeader() {
 	  myGUI.print(F.format("dst",CONST_TAB_SIZE) + " |");
 	  for (int i = 0; i < sim.NUM_NODES ; i++) {myGUI.print(F.format(i,CONST_TAB_SIZE));}
@@ -126,6 +140,7 @@ public class RouterNode {
   }
 
   //--------------------------------------------------
+  // Print distance table, costs list & routes list when call
   public void printDistanceTable() {
 	  // Header
 	  myGUI.println("Current table for " + myID +
@@ -166,8 +181,11 @@ public class RouterNode {
   }
 
   //--------------------------------------------------
+  // If a link change its cost
   public void updateLinkCost(int dest, int newcost) {
+	  // Updating costs list
 	  costs[dest] = newcost;
+	  // Spreading the update
 	  if (Update()) {sendUpdate();}
   }
   
