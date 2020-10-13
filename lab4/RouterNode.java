@@ -6,6 +6,7 @@ public class RouterNode {
   private GuiTextArea myGUI;
   private RouterSimulator sim;
   private int[] costs = new int[RouterSimulator.NUM_NODES];
+  private int[] routesCosts = new int[RouterSimulator.NUM_NODES];
   private int[] routesList = new int[RouterSimulator.NUM_NODES];
   private int[][] distanceTable = new int[RouterSimulator.NUM_NODES][RouterSimulator.NUM_NODES];
   
@@ -29,6 +30,7 @@ public class RouterNode {
     myGUI = new GuiTextArea("  Output window for Router #"+ ID + "  ");
 
     System.arraycopy(costs, 0, this.costs, 0, RouterSimulator.NUM_NODES);
+    System.arraycopy(costs, 0, this.routesCosts, 0, RouterSimulator.NUM_NODES);
     
     
     // Route list initialisation
@@ -76,6 +78,7 @@ public class RouterNode {
 				  distanceTable[myID][i] = distanceTable[j][i] + costs[j];
                   newRouteCost = distanceTable[myID][i];
 				  routesList[i] = j;
+				  routesCosts[i] = newRouteCost;
 			  }
 		  }
 		  // If we have changed smth then we have a update
@@ -169,7 +172,8 @@ public class RouterNode {
 	  // Printing costs
 	  myGUI.print(F.format("cost",CONST_TAB_SIZE) + "|");
 	  for (int i = 0; i < sim.NUM_NODES; i++) {
-	      myGUI.print(F.format(costs[i],CONST_TAB_SIZE));
+	      myGUI.print(F.format(routesCosts[i],CONST_TAB_SIZE));
+	      //myGUI.print(F.format(costs[i],CONST_TAB_SIZE));
 	  }
 	  myGUI.println("");
 	  // Printing routes
