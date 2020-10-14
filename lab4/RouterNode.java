@@ -148,7 +148,6 @@ public class RouterNode {
 	  // Header
 	  myGUI.println("Current table for " + myID +
 			"  at time " + sim.getClocktime());
-	  myGUI.println("");
 	  
 	  // DistanceTable
 	  myGUI.println("Distancetable: ");
@@ -176,12 +175,22 @@ public class RouterNode {
 	      //myGUI.print(F.format(costs[i],CONST_TAB_SIZE));
 	  }
 	  myGUI.println("");
+	  
 	  // Printing routes
 	  myGUI.print(F.format("route",CONST_TAB_SIZE) + "|");
 	  for (int i = 0; i < sim.NUM_NODES; i++) {
 	      myGUI.print(F.format(routesList[i],CONST_TAB_SIZE));
 	  }
 	  myGUI.println("");
+	  
+	  // Printing info on poisoned reverse
+	  if (POISONED_REVERSE) {
+		  myGUI.println("(Poisoned reverse active)");
+	  }
+	  else {
+		  myGUI.println("(No poisoned reverse)");
+	  }
+	  myGUI.println("\n");
   }
 
   //--------------------------------------------------
@@ -195,8 +204,8 @@ public class RouterNode {
   
   // DEBUG FUNCTION - TO REMOVE
   private void DEBUG(String str) {
-	  myGUI.print(" DEBUG from " + myID + "  at time " + sim.getClocktime() + ": ");
-	  myGUI.println(str);
+	  //myGUI.print(" DEBUG from " + myID + "  at time " + sim.getClocktime() + ": ");
+	  //myGUI.println(str);
   }
 }
 
