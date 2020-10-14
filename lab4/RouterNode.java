@@ -14,12 +14,7 @@ public class RouterNode {
   private int CONST_TAB_SIZE = 12; 			// Constant used to set column width
   private boolean POISONED_REVERSE = true; 	// To set poisoned reverse or not
   
-  /*	TDTS06 - Mayeul G. & Pierre M. - Lab 4
-   * 	TODO:
-   * 		- Debug and make this program work --> done.
-   * 		- Panic --> done.
-   * 		- Demonstrate ?
-   */
+  /*	TDTS06 - Mayeul G. & Pierre M. - Lab 4   */
   
 
   //--------------------------------------------------
